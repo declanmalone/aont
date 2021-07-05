@@ -116,6 +116,7 @@
 //! Digest algorithms (ie implement the Digest trait for them).
 
 
+/// XOR block of data: *dst ^= *src, returning dst
 pub fn xor_slice<'a> (dst : &'a mut [u8], src : &[u8]) -> &'a mut [u8] {
 
     // for now, require dst, src to be of equal length
