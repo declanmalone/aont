@@ -55,7 +55,7 @@
 //!
 //! * applying an xor mask to the file using a random parameter `R`
 //! * calculating a hash `S` of the transformed data using a public parameter `P`
-//! * using that hash to xor mask the value of P, which is appended to the file
+//! * using that hash to xor mask the value of `R`, which is appended to the file
 //!
 //! In reverse:
 //!
