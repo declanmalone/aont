@@ -115,7 +115,7 @@
 //! us). I might also implement the two phases of the algorithm as
 //! Digest algorithms (ie implement the Digest trait for them).
 
-fn xor_slice<'a> (dst : &'a mut [u8], src : &[u8]) -> &'a mut [u8] {
+pub fn xor_slice<'a> (dst : &'a mut [u8], src : &[u8]) -> &'a mut [u8] {
 
     // for now, require dst, src to be of equal length
     assert_eq!(dst.len(), src.len());
@@ -138,7 +138,7 @@ use sha1::{Sha1, Digest};
 // * use network (big-endian) order for bytes in i
 // * operate on a "string" (actually &[u8] internally)
 
-fn encode_sha1(message : &[u8], public : &[u8]) -> Box<[u8]> {
+pub fn encode_sha1(message : &[u8], public : &[u8]) -> Box<[u8]> {
 
     // Actually, don't need to construct new hasher if we're only
     // calling associated method digest():
@@ -147,6 +147,9 @@ fn encode_sha1(message : &[u8], public : &[u8]) -> Box<[u8]> {
 
     // get block size from hasher
     let blocksize = Sha1::output_size();
+    assert_eq!(public.len(), blocksize,
+	       "decode_sha1: public length {} != block size {}",
+	       public.len(), blocksize );
 
     // allocate output buffer with extra block at the end for R ^ S
     let mut buffer = vec![0u8; message.len() + blocksize];
@@ -159,7 +162,7 @@ fn encode_sha1(message : &[u8], public : &[u8]) -> Box<[u8]> {
     for i in 0 .. blocksize {
     	r_in[i] = rng.gen();
     }
-    eprintln!("Random parameter: {:?}", r_in);
+    eprintln!("Generated random parameter: {:?}", r_in);
 
     // input buffer for hash(P, out[i] + i)
     let mut p_in = vec![0u8; blocksize * 2 + size_of::<u32>()];
@@ -226,7 +229,7 @@ fn encode_sha1(message : &[u8], public : &[u8]) -> Box<[u8]> {
 }
 
 
-fn decode_sha1(message : &[u8], public : &[u8]) -> Box<[u8]> {
+pub fn decode_sha1(message : &[u8], public : &[u8]) -> Box<[u8]> {
 
     // Two passes required:
     // * apply E(P, received_block(i) + i) to recover R
@@ -235,15 +238,18 @@ fn decode_sha1(message : &[u8], public : &[u8]) -> Box<[u8]> {
     let blocksize = Sha1::output_size();
     let blocks = message.len() / blocksize;
 
+    if message.len() % blocksize != 0 {
+	panic!("Message is not a multiple of block size {}", blocksize);
+    }
+    assert_eq!(public.len(), blocksize,
+	       "decode_sha1: public length {} != block size {}",
+	       public.len(), blocksize );
+
     // output buffer one block shorter than input
     let mut buffer = vec![0u8; message.len() - blocksize];
     let mut r_in   = vec![0u8; blocksize + size_of::<u32>()];
     let mut p_in   = vec![0u8; blocksize * 2 + size_of::<u32>()];
     p_in[0..blocksize].copy_from_slice(public);
-
-    if message.len() % blocksize != 0 {
-	panic!("Message is not a multiple of block size {}", blocksize);
-    }
 
     let mut i : u32 = 1;
     let mut sum = vec![0u8; blocksize];
@@ -300,9 +306,40 @@ mod tests {
     fn same_20_bytes_back() {
 	let twenty = "0123456789abcdef0123";
 	let slice  = twenty.as_bytes();
+	// also use twenty as public key
 	let boxed  = encode_sha1(slice, slice);
 	assert_ne!(*slice, *boxed);
 	let back   = decode_sha1(&*boxed, slice);
 	assert_eq!(slice, &*back);
     }
+
+    #[test]
+    fn same_40_bytes_back() {
+	let forty = "0123456789abcdef01230123456789abcdef0123";
+	let slice  = forty.as_bytes();
+	// slice is now too long to be used as a key
+	let boxed  = encode_sha1(slice, &slice[0..20]);
+	assert_ne!(*slice, *boxed);
+	let back   = decode_sha1(&*boxed, &slice[0..20]);
+	assert_eq!(slice, &*back);
+    }
+
+    #[test]
+    #[should_panic]
+    fn public_encode_parameter() {
+	let forty = "0123456789abcdef01230123456789abcdef0123";
+	let slice  = forty.as_bytes();
+	// slice is now too long to be used as a key
+	let boxed  = encode_sha1(slice, slice);
+    }
+    
+    #[test]
+    #[should_panic]
+    fn public_decode_parameter() {
+	let forty = "0123456789abcdef01230123456789abcdef0123";
+	let slice  = forty.as_bytes();
+	// slice is now too long to be used as a key
+	let boxed  = decode_sha1(slice, slice);
+    }
+
 }
