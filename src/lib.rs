@@ -1,9 +1,30 @@
 //! # Rivest's All-or-nothing-transform
 //!
-//! The AONT encodes and decodes a message by use of a public "key" `P`
-//! (in the normal sense of the word&mdash;not an RSA public key) and
-//! a random "key" `R`. It also uses a hash function E() which works on
-//! blocks of the message.
+//! ```rust
+//! use aont::{encode_sha1, decode_sha1};
+//!
+//! // Set up message to be encoded and public parameter
+//! let message = "0123456789abcdef0123";
+//! let public  = "abcdeabcdeabcdeabcde";
+//! let message_as_bytes  = message.as_bytes();
+//!
+//! // Do the encoding (get back transformed data)
+//! let encoded = encode_sha1(message_as_bytes, public.as_bytes());
+//! assert_ne!(*message_as_bytes, *encoded);
+//!
+//! // Pass encoded message and same public parameter to recover original message
+//! let recover = decode_sha1(&*encoded, public.as_bytes());
+//! assert_eq!(message_as_bytes, &*recover);
+//!
+//! ```
+//!
+//! # Operation
+//!
+//! The [AONT](https://en.wikipedia.org/wiki/All-or-nothing_transform)
+//! encodes and decodes a message by use of a public "key" `P` (in the
+//! normal sense of the word&mdash;not an RSA public key) and a random
+//! "key" `R`. It also uses a hash function E() which works on blocks
+//! of the message.
 //!
 //! The steps taken are:
 //!
@@ -27,6 +48,8 @@
 //! to extract the random "key" from the final block of the
 //! message. With this, the outer decoding can proceed to decode the
 //! transformed blocks.
+//!
+//! # Explanation in terms of XOR masking
 //!
 //! In simpler terms, encoding can be understood as:
 //!
