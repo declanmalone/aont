@@ -115,12 +115,14 @@
 //! us). I might also implement the two phases of the algorithm as
 //! Digest algorithms (ie implement the Digest trait for them).
 
+
 pub fn xor_slice<'a> (dst : &'a mut [u8], src : &[u8]) -> &'a mut [u8] {
 
     // for now, require dst, src to be of equal length
-    assert_eq!(dst.len(), src.len());
+    assert_eq!(dst.len(), src.len(),
+	       "xor_slice: dst and src must be the same length" );
 
-    // can we use zip?
+    // Can we use zip? Yes. Should also auto-vectorise.
     for (d,s) in dst.iter_mut().zip(src) {
         *d ^= s;
     }
@@ -138,6 +140,7 @@ use sha1::{Sha1, Digest};
 // * use network (big-endian) order for bytes in i
 // * operate on a "string" (actually &[u8] internally)
 
+/// Encode a message using SHA-1
 pub fn encode_sha1(message : &[u8], public : &[u8]) -> Box<[u8]> {
 
     // Actually, don't need to construct new hasher if we're only
@@ -159,8 +162,8 @@ pub fn encode_sha1(message : &[u8], public : &[u8]) -> Box<[u8]> {
 	  
     // generate R, storing it at the start of r_in
     let mut rng = thread_rng();
-    for i in 0 .. blocksize {
-    	r_in[i] = rng.gen();
+    for elem in r_in.iter_mut().take(blocksize) {
+	*elem = rng.gen();
     }
     eprintln!("Generated random parameter: {:?}", r_in);
 
@@ -228,7 +231,7 @@ pub fn encode_sha1(message : &[u8], public : &[u8]) -> Box<[u8]> {
     buffer.into()
 }
 
-
+/// Decode a message using SHA-1
 pub fn decode_sha1(message : &[u8], public : &[u8]) -> Box<[u8]> {
 
     // Two passes required:
@@ -273,7 +276,7 @@ pub fn decode_sha1(message : &[u8], public : &[u8]) -> Box<[u8]> {
 	copy_from_slice(&message[0..(blocks - 1) * blocksize]);
     for i in 1..blocks {
 	let index = (i as usize  - 1) * blocksize;
-	let mut chunk = &mut buffer[index..index + blocksize];
+	let chunk = &mut buffer[index..index + blocksize];
 	r_in[blocksize..].copy_from_slice(&(i as u32).to_be_bytes());
 	xor_slice(chunk, &Sha1::digest(&r_in));
     }
@@ -291,7 +294,7 @@ mod tests {
 	// should panic because 19 % 20 != 0
 	let nineteen = "0123456789abcdef012";
 	let slice = nineteen.as_bytes();
-	let boxed = encode_sha1(slice, slice);
+	let _boxed = encode_sha1(slice, slice);
     }
 
     #[test]
@@ -330,7 +333,7 @@ mod tests {
 	let forty = "0123456789abcdef01230123456789abcdef0123";
 	let slice  = forty.as_bytes();
 	// slice is now too long to be used as a key
-	let boxed  = encode_sha1(slice, slice);
+	let _oxed  = encode_sha1(slice, slice);
     }
     
     #[test]
@@ -339,7 +342,7 @@ mod tests {
 	let forty = "0123456789abcdef01230123456789abcdef0123";
 	let slice  = forty.as_bytes();
 	// slice is now too long to be used as a key
-	let boxed  = decode_sha1(slice, slice);
+	let _boxed  = decode_sha1(slice, slice);
     }
 
 }
